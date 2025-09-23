@@ -126,7 +126,7 @@ else:
 
 USER_DB = os.getenv('USER_DB')
 PSWD_DB = os.getenv('PSWD_DB')
-NAME_DB = os.getenv('PSWD_DB')
+NAME_DB = os.getenv('NAME_DB')
 
 DATABASES = {
     DATABASE_CONNECTION_DEFAULT_NAME: dj_database_url.config(
