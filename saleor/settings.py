@@ -121,9 +121,9 @@ else:
     # default env first.
     DATABASE_URL_REPLICA_ENV_NAME = dj_database_url.DEFAULT_ENV
 
-USER_DB = os.getenv('USER_DB')
-PSWD_DB = os.getenv('PSWD_DB')
-NAME_DB = os.getenv('PSWD_DB')
+USER_DB = os.environ.get('USER_DB')
+PSWD_DB = os.environ.get('PSWD_DB')
+NAME_DB = os.environ.get('PSWD_DB')
 
 DATABASES = {
     DATABASE_CONNECTION_DEFAULT_NAME: dj_database_url.config(
@@ -133,7 +133,7 @@ DATABASES = {
     ),
     DATABASE_CONNECTION_REPLICA_NAME: dj_database_url.config(
         env=DATABASE_URL_REPLICA_ENV_NAME,
-        default="postgres://saleor_user:justpswd@localhost:5432/saleor2",
+        default=f"postgres://{USER_DB}:{PSWD_DB}@localhost:5432/{NAME_DB}",
         # TODO: We need to add read only user to saleor platform,
         # and we need to update docs.
         # default="postgres://saleor_read_only:saleor@localhost:5432/saleor",
