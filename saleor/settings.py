@@ -6,6 +6,7 @@ import os.path
 import warnings
 from typing import cast
 from urllib.parse import urlparse
+from dotenv import load_dotenv
 
 import dj_database_url
 import dj_email_url
@@ -35,6 +36,8 @@ from .core.schedules import initiated_promotion_webhook_schedule
 from .graphql.executor import patch_executor
 from .graphql.promise import patch_promise
 from .patch_local import patch_local
+
+load_dotenv()
 
 django_stubs_ext.monkeypatch()
 
@@ -121,9 +124,9 @@ else:
     # default env first.
     DATABASE_URL_REPLICA_ENV_NAME = dj_database_url.DEFAULT_ENV
 
-USER_DB = os.environ.get('USER_DB')
-PSWD_DB = os.environ.get('PSWD_DB')
-NAME_DB = os.environ.get('PSWD_DB')
+USER_DB = os.getenv('USER_DB')
+PSWD_DB = os.getenv('PSWD_DB')
+NAME_DB = os.getenv('PSWD_DB')
 
 DATABASES = {
     DATABASE_CONNECTION_DEFAULT_NAME: dj_database_url.config(
