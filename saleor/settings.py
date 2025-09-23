@@ -298,7 +298,7 @@ INSTALLED_APPS = [
     "django.contrib.sites",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
-    "django_celery_beat",
+    # "django_celery_beat",
     "corsheaders",
     # Local apps
     "saleor.permission",
