@@ -327,7 +327,7 @@ INSTALLED_APPS = [
     "saleor.webhook",
     "saleor.app",
     "saleor.thumbnail",
-    "saleor.schedulers",
+    # "saleor.schedulers",
     # External apps
     "django_measurement",
     "mptt",
