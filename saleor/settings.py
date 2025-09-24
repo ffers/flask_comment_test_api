@@ -294,8 +294,8 @@ INSTALLED_APPS = [
     # External apps that need to go before django's
     "storages",
     # Django modules
-    # "django.contrib.contenttypes",
-    # "django.contrib.sites",
+    "django.contrib.contenttypes",
+    "django.contrib.sites",
     "django.contrib.staticfiles",
     "django.contrib.postgres",
     "django_celery_beat",
