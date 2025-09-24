@@ -299,7 +299,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "django.contrib.postgres",
     "django_celery_beat",
-    # "corsheaders",
+    "corsheaders",
     # Local apps
     "saleor.permission",
     "saleor.auth",
@@ -327,7 +327,7 @@ INSTALLED_APPS = [
     "saleor.webhook",
     "saleor.app",
     "saleor.thumbnail",
-    # "saleor.schedulers",
+    "saleor.schedulers",
     # External apps
     "django_measurement",
     "mptt",
