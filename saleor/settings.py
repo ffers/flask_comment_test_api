@@ -74,7 +74,6 @@ HARD_MEMORY_LIMIT_IN_MB = os.environ.get("HARD_MEMORY_LIMIT_IN_MB", None)
 validate_and_set_rlimit(SOFT_MEMORY_LIMIT_IN_MB, HARD_MEMORY_LIMIT_IN_MB)
 
 DEBUG = get_bool_from_env("DEBUG", True)
-DEBUG = True
 
 SITE_ID = 1
 
@@ -267,7 +266,17 @@ if not SECRET_KEY and DEBUG:
     )
     SECRET_KEY = get_random_secret_key()
 
-RSA_PRIVATE_KEY = os.environ.get("RSA_PRIVATE_KEY", None)
+# RSA_PRIVATE_KEY = os.environ.get("RSA_PRIVATE_KEY", None)
+import os
+from pathlib import Path
+
+_key = os.environ.get("RSA_PRIVATE_KEY")
+if _key and Path(_key).exists():
+    with open(_key, "rb") as f:
+        RSA_PRIVATE_KEY = f.read().decode()
+else:
+    RSA_PRIVATE_KEY = _key  # старий варіант (прямий PEM)
+
 RSA_PRIVATE_PASSWORD = os.environ.get("RSA_PRIVATE_PASSWORD", None)
 JWT_MANAGER_PATH = os.environ.get(
     "JWT_MANAGER_PATH", "saleor.core.jwt_manager.JWTManager"
@@ -340,6 +349,8 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:9000",
     "http://127.0.0.1:9000",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
     "https://jemis.com.ua",
     "https://www.jemis.com.ua"
 ]
@@ -481,8 +492,37 @@ LOGGING = {
         },
         "graphql.execution.utils": {"propagate": False, "handlers": ["null"]},
         "graphql.execution.executor": {"propagate": False, "handlers": ["null"]},
+    },}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "file": {
+            "level": "ERROR",
+            "class": "logging.FileHandler",
+            "filename": "/home/fferses/saleor-platform/saleor/log/saleor_errors.log",  # куди писати
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["file"],
+            "level": "ERROR",
+            "propagate": True,
+        },
+        "django.request": {   # ✅ саме цей ловить 500
+            "handlers": ["file"],
+            "level": "ERROR",
+            "propagate": False,
+        },
+        "saleor_platform": {
+            "handlers": ["file"],
+            "level": "ERROR",
+            "propagate": False,
+        }
     },
 }
+
 # LOGGING = {
 #     "version": 1,
 #     "disable_existing_loggers": False,
@@ -516,7 +556,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
         "OPTIONS": {"min_length": 8},
-    }
+        }
 ]
 
 DEFAULT_COUNTRY: str = os.environ.get("DEFAULT_COUNTRY", "US")

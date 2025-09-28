@@ -1250,12 +1250,15 @@ class Checkout(SyncWebhookControlContextModelObjectType[models.Checkout]):
         @allow_writer_in_context(info.context)
         def get_available_payment_gateways(results):
             checkout_info, lines_info = results
-            return manager.list_payment_gateways(
+            
+            getways = manager.list_payment_gateways(
                 currency=root.node.currency,
                 checkout_info=checkout_info,
                 checkout_lines=lines_info,
                 channel_slug=checkout_info.channel.slug,
             )
+            print("allow_writer_in_context", getways)
+            return getways
 
         return Promise.all([checkout_info, checkout_lines_info]).then(
             get_available_payment_gateways
