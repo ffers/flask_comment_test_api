@@ -1252,7 +1252,7 @@ class Checkout(SyncWebhookControlContextModelObjectType[models.Checkout]):
             checkout_info, lines_info = results
             
             getways = manager.list_payment_gateways(
-                currency=root.node.currency,
+            #    currency=root.node.currency,
                 checkout_info=checkout_info,
                 checkout_lines=lines_info,
                 channel_slug=checkout_info.channel.slug,
