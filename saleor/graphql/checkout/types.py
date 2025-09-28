@@ -1040,29 +1040,51 @@ class Checkout(SyncWebhookControlContextModelObjectType[models.Checkout]):
     def resolve_delivery_method(
         root: SyncWebhookControlContext[models.Checkout], info: ResolveInfo
     ):
-        @allow_writer_in_context(info.context)
-        def with_checkout_info(data):
-            checkout_info, excluded_payloads = data
-            checkout_info.pregenerated_payloads_for_excluded_shipping_method = (
-                excluded_payloads
-            )
-            checkout_info.allow_sync_webhooks = root.allow_sync_webhooks
-            return checkout_info.get_delivery_method_info().delivery_method
+        # @allow_writer_in_context(info.context)
+        # def with_checkout_info(data):
+        #     checkout_info, excluded_payloads = data
+        #     checkout_info.pregenerated_payloads_for_excluded_shipping_method = (
+        #         excluded_payloads
+        #     )
+        #     checkout_info.allow_sync_webhooks = root.allow_sync_webhooks
+        #     return checkout_info.get_all_shipping_methods()
 
-        excluded_shipping_methods_payloads_dataloader = None
-        if root.allow_sync_webhooks:
-            excluded_shipping_methods_payloads_dataloader = (
-                PregeneratedCheckoutFilterShippingMethodPayloadsByCheckoutTokenLoader(
-                    info.context
-                ).load(root.node.token)
+        # excluded_shipping_methods_payloads_dataloader = None
+        # if root.allow_sync_webhooks:
+        #     excluded_shipping_methods_payloads_dataloader = (
+        #         PregeneratedCheckoutFilterShippingMethodPayloadsByCheckoutTokenLoader(
+        #             info.context
+        #         ).load(root.node.token)
+        #     )
+
+        # checkout_info_dataloader = CheckoutInfoByCheckoutTokenLoader(info.context).load(
+        #     root.node.token
+        # )
+        # return Promise.all(
+        #     [checkout_info_dataloader, excluded_shipping_methods_payloads_dataloader]
+        # ).then(with_checkout_info)
+        """
+        Тестовий варіант: віддаємо ВСІ методи доставки, доступні в каналі checkout,
+        ігноруючи країну/адресу. Повертаємо як ChannelContext, як очікує GraphQL.
+        """
+        channel_slug = getattr(root, "channel", None).slug if getattr(root, "channel", None) else None
+        if not channel_slug:
+            return []
+
+        # 1) Беремо всі зони, під’єднані до каналу
+        zones_promise = ShippingZonesByChannelSlugLoader(info.context).load(channel_slug)
+
+        def methods_for_zones(zones):
+            # 2) Для кожної зони забираємо методи
+            loads = [ShippingMethodsByShippingZoneIdLoader(info.context).load(z.id) for z in zones]
+            return Promise.all(loads).then(
+                lambda lists: [
+                    ChannelContext(node=sm, channel_slug=channel_slug)
+                    for sub in lists for sm in sub
+                ]
             )
 
-        checkout_info_dataloader = CheckoutInfoByCheckoutTokenLoader(info.context).load(
-            root.node.token
-        )
-        return Promise.all(
-            [checkout_info_dataloader, excluded_shipping_methods_payloads_dataloader]
-        ).then(with_checkout_info)
+        return zones_promise.then(methods_for_zones)
 
     @staticmethod
     def resolve_quantity(
