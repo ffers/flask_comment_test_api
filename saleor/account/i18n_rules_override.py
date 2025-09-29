@@ -19,6 +19,7 @@ COUNTRIES_RULES_OVERRIDE = {
         "postal_code": None, 
         "fmt": "%N%n%A%n%C%n%S%n%Z",
         "lfmt": "%N%n%A, %C, %S%n%Z",
+        "name": "Україна",
     },
     
 }
