@@ -447,6 +447,8 @@ def _append_line_to_create(
 
 def _check_new_checkout_address(checkout, address, address_type):
     """Check if and address in checkout has changed and if to remove old one."""
+
+
     if address_type == AddressType.BILLING:
         old_address = checkout.billing_address
     else:
@@ -500,6 +502,7 @@ def change_shipping_address_in_checkout(
     lines: list["CheckoutLineInfo"],
     shipping_channel_listings: Iterable["ShippingMethodChannelListing"],
 ):
+    
     """Save shipping address in checkout if changed.
 
     Remove previously saved address if not connected to any user.
@@ -951,6 +954,7 @@ def get_valid_internal_shipping_methods_for_checkout_info(
     checkout_info: "CheckoutInfo",
     subtotal: "Money",
 ) -> list[ShippingMethodData]:
+
     if not is_shipping_required(checkout_info.lines):
         return []
     if not checkout_info.shipping_address:
@@ -1020,6 +1024,7 @@ def get_valid_collection_points_for_checkout(
 def clear_delivery_method(
     checkout_info: "CheckoutInfo", save: bool = True
 ) -> list[str]:
+
     checkout = checkout_info.checkout
     updated_fields = remove_delivery_method_from_checkout(checkout_info.checkout)
 
@@ -1240,6 +1245,7 @@ def assign_built_in_shipping_to_checkout(
 def assign_collection_point_to_checkout(
     checkout, collection_point: Warehouse
 ) -> list[str]:
+
     fields_to_update = []
     fields_to_update += _remove_undiscounted_base_shipping_price(checkout)
     fields_to_update += remove_external_shipping_from_checkout(checkout)

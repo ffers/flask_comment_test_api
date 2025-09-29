@@ -674,6 +674,10 @@ class Checkout(SyncWebhookControlContextModelObjectType[models.Checkout]):
     voucher_code = graphene.String(
         description="The code of voucher assigned to the checkout."
     )
+    print("================ Save shipping address in checkout if changed. ")
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(">>> DEBUG mutation checkoutShippingAddressUpdate called")
     available_shipping_methods = BaseField(
         NonNullList(ShippingMethod),
         required=True,
@@ -985,6 +989,9 @@ class Checkout(SyncWebhookControlContextModelObjectType[models.Checkout]):
             checkout_info.pregenerated_payloads_for_excluded_shipping_method = (
                 excluded_payloads
             )
+            from saleor.shipping.models import ShippingMethod
+            methods = ShippingMethod.objects.all()
+            print(f'resolve_shipping_method: {methods}')
             delivery_method = checkout_info.get_delivery_method_info().delivery_method
             if not delivery_method or not isinstance(
                 delivery_method, ShippingMethodData
@@ -1040,51 +1047,29 @@ class Checkout(SyncWebhookControlContextModelObjectType[models.Checkout]):
     def resolve_delivery_method(
         root: SyncWebhookControlContext[models.Checkout], info: ResolveInfo
     ):
-        # @allow_writer_in_context(info.context)
-        # def with_checkout_info(data):
-        #     checkout_info, excluded_payloads = data
-        #     checkout_info.pregenerated_payloads_for_excluded_shipping_method = (
-        #         excluded_payloads
-        #     )
-        #     checkout_info.allow_sync_webhooks = root.allow_sync_webhooks
-        #     return checkout_info.get_all_shipping_methods()
+        @allow_writer_in_context(info.context)
+        def with_checkout_info(data):
+            checkout_info, excluded_payloads = data
+            checkout_info.pregenerated_payloads_for_excluded_shipping_method = (
+                excluded_payloads
+            )
+            checkout_info.allow_sync_webhooks = root.allow_sync_webhooks
+            return checkout_info.get_delivery_method_info().delivery_method
 
-        # excluded_shipping_methods_payloads_dataloader = None
-        # if root.allow_sync_webhooks:
-        #     excluded_shipping_methods_payloads_dataloader = (
-        #         PregeneratedCheckoutFilterShippingMethodPayloadsByCheckoutTokenLoader(
-        #             info.context
-        #         ).load(root.node.token)
-        #     )
-
-        # checkout_info_dataloader = CheckoutInfoByCheckoutTokenLoader(info.context).load(
-        #     root.node.token
-        # )
-        # return Promise.all(
-        #     [checkout_info_dataloader, excluded_shipping_methods_payloads_dataloader]
-        # ).then(with_checkout_info)
-        """
-        Тестовий варіант: віддаємо ВСІ методи доставки, доступні в каналі checkout,
-        ігноруючи країну/адресу. Повертаємо як ChannelContext, як очікує GraphQL.
-        """
-        channel_slug = getattr(root, "channel", None).slug if getattr(root, "channel", None) else None
-        if not channel_slug:
-            return []
-
-        # 1) Беремо всі зони, під’єднані до каналу
-        zones_promise = ShippingZonesByChannelSlugLoader(info.context).load(channel_slug)
-
-        def methods_for_zones(zones):
-            # 2) Для кожної зони забираємо методи
-            loads = [ShippingMethodsByShippingZoneIdLoader(info.context).load(z.id) for z in zones]
-            return Promise.all(loads).then(
-                lambda lists: [
-                    ChannelContext(node=sm, channel_slug=channel_slug)
-                    for sub in lists for sm in sub
-                ]
+        excluded_shipping_methods_payloads_dataloader = None
+        if root.allow_sync_webhooks:
+            excluded_shipping_methods_payloads_dataloader = (
+                PregeneratedCheckoutFilterShippingMethodPayloadsByCheckoutTokenLoader(
+                    info.context
+                ).load(root.node.token)
             )
 
-        return zones_promise.then(methods_for_zones)
+        checkout_info_dataloader = CheckoutInfoByCheckoutTokenLoader(info.context).load(
+            root.node.token
+        )
+        return Promise.all(
+            [checkout_info_dataloader, excluded_shipping_methods_payloads_dataloader]
+        ).then(with_checkout_info)
 
     @staticmethod
     def resolve_quantity(
@@ -1272,15 +1257,12 @@ class Checkout(SyncWebhookControlContextModelObjectType[models.Checkout]):
         @allow_writer_in_context(info.context)
         def get_available_payment_gateways(results):
             checkout_info, lines_info = results
-            
-            getways = manager.list_payment_gateways(
-            #    currency=root.node.currency,
+            return manager.list_payment_gateways(
+               # currency=root.node.currency,
                 checkout_info=checkout_info,
                 checkout_lines=lines_info,
                 channel_slug=checkout_info.channel.slug,
             )
-            print("allow_writer_in_context", getways)
-            return getways
 
         return Promise.all([checkout_info, checkout_lines_info]).then(
             get_available_payment_gateways

@@ -288,6 +288,12 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "saleor.core.middleware.jwt_refresh_token_middleware",
 ]
+GRAPHENE = {
+    "MIDDLEWARE": [
+        "saleor.graphql.middleware.GraphQLLoggingMiddleware",
+    ]
+}
+MIDDLEWARE.insert(0, "saleor.core.middleware.GraphQLLogger")
 
 
 ENABLE_RESTRICT_WRITER_MIDDLEWARE = get_bool_from_env(
@@ -343,6 +349,7 @@ INSTALLED_APPS = [
     "django_countries",
     "django_filters",
     "phonenumber_field",
+
 ]
 CORS_ALLOW_ALL_ORIGINS = False
 
@@ -493,61 +500,6 @@ LOGGING = {
         "graphql.execution.utils": {"propagate": False, "handlers": ["null"]},
         "graphql.execution.executor": {"propagate": False, "handlers": ["null"]},
     },}
-
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "handlers": {
-        "file": {
-            "level": "ERROR",
-            "class": "logging.FileHandler",
-            "filename": "/home/fferses/saleor-platform/saleor/log/saleor_errors.log",  # куди писати
-        },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["file"],
-            "level": "ERROR",
-            "propagate": True,
-        },
-        "django.request": {   # ✅ саме цей ловить 500
-            "handlers": ["file"],
-            "level": "ERROR",
-            "propagate": False,
-        },
-        "saleor_platform": {
-            "handlers": ["file"],
-            "level": "ERROR",
-            "propagate": False,
-        }
-    },
-}
-
-# LOGGING = {
-#     "version": 1,
-#     "disable_existing_loggers": False,
-#     "handlers": {
-#         "console": {
-#             "class": "logging.StreamHandler",
-#         },
-#     },
-#     "root": {
-#         "handlers": ["console"],
-#         "level": "DEBUG",   # INFO / WARNING / ERROR
-#     },
-#     "loggers": {
-#         "django": {
-#             "handlers": ["console"],
-#             "level": "DEBUG",
-#             "propagate": True,
-#         },
-#         "django.request": {
-#             "handlers": ["console"],
-#             "level": "DEBUG",
-#             "propagate": False,
-#         },
-#     },
-# }
 
 
 AUTH_USER_MODEL = "account.User"
@@ -1194,3 +1146,4 @@ patch_db()
 # Patch `Local` to remove all references that could result in reference cycles,
 # allowing memory to be freed immediately, without the need of a deep garbage collection cycle.
 patch_local()
+

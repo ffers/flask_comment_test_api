@@ -12,6 +12,15 @@ COUNTRIES_RULES_OVERRIDE = {
         "fmt": "〒%Z%n%S%n%C%n%A%n%O%n%N",
         "lfmt": "%N%n%O%n%A, %C, %S%n%Z",
     },
+    "UA": {
+        # убираем postalCode из обязательных полей
+        "require": "AC",  
+        "postal_code_mandatory": False,
+        "postal_code": None, 
+        "fmt": "%N%n%A%n%C%n%S%n%Z",
+        "lfmt": "%N%n%A, %C, %S%n%Z",
+    },
+    
 }
 
 
@@ -21,6 +30,8 @@ def patched_load_validation_data(country_code="all"):
     if rules_override := COUNTRIES_RULES_OVERRIDE.get(upper_country_code):
         for key, value in rules_override.items():
             validation_data[upper_country_code][key] = value
+        
+    # print(f'patched_load_validation_data {validation_data}')
     return validation_data
 
 
