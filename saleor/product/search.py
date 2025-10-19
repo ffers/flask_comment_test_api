@@ -274,11 +274,21 @@ def get_reference_attribute_search_value(
     return ""
 
 
+# def search_products(qs, value):
+#     if value:
+#         query = SearchQuery(value, search_type="websearch", config="simple")
+#         lookup = Q(search_vector=query)
+#         qs = qs.filter(lookup).annotate(
+#             search_rank=SearchRank(F("search_vector"), query)
+#         )
+#     return qs
+
+
 def search_products(qs, value):
-    if value:
-        query = SearchQuery(value, search_type="websearch", config="simple")
-        lookup = Q(search_vector=query)
-        qs = qs.filter(lookup).annotate(
-            search_rank=SearchRank(F("search_vector"), query)
-        )
-    return qs
+    if not value:
+        return qs
+    # простий прямий пошук без FTS
+    return qs.filter(
+        Q(name__icontains=value) |
+        Q(description_plaintext__icontains=value)
+    )
