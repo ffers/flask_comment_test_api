@@ -23,6 +23,7 @@ from ..core.types import TYPES_WITH_DOUBLE_ID_AVAILABLE, Permission
 from ..core.utils import from_global_id_or_error
 from ..core.validators.query_cost import QueryCostError
 
+
 if TYPE_CHECKING:
     from ..core import SaleorContext
 

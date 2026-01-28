@@ -26,6 +26,10 @@ from ...types import Product
 from ..utils import clean_tax_code
 from . import product_cleaner as cleaner
 
+from .....utils import OC_logger
+
+logger = OC_logger.oc_log("product_create")
+
 
 class ProductInput(BaseInputObjectType):
     attributes = NonNullList(AttributeValueInput, description="List of attributes.")
@@ -138,16 +142,22 @@ class ProductCreate(DeprecatedModelMutation):
 
     @classmethod
     def clean_input(cls, info: ResolveInfo, instance, data, **kwargs):
-        cleaned_input = super().clean_input(info, instance, data, **kwargs)
+        logger.debug(f"ProductCreate.clean_input started with data: {data}")
+        try:
+            cleaned_input = super().clean_input(info, instance, data, **kwargs)
 
-        cleaner.clean_description(cleaned_input)
-        cleaner.clean_weight(cleaned_input)
-        cleaner.clean_slug(cleaned_input, instance)
-        cls.clean_attributes(cleaned_input, instance)
-        clean_tax_code(cleaned_input)
-        clean_seo_fields(cleaned_input)
+            cleaner.clean_description(cleaned_input)
+            cleaner.clean_weight(cleaned_input)
+            cleaner.clean_slug(cleaned_input, instance)
+            cls.clean_attributes(cleaned_input, instance)
+            clean_tax_code(cleaned_input)
+            clean_seo_fields(cleaned_input)
 
-        return cleaned_input
+            logger.debug(f"ProductCreate.clean_input completed successfully")
+            return cleaned_input
+        except Exception as e:
+            logger.error(f"ProductCreate.clean_input failed: {e}", exc_info=True)
+            raise
 
     @classmethod
     def clean_attributes(cls, cleaned_input, instance):
@@ -157,6 +167,7 @@ class ProductCreate(DeprecatedModelMutation):
         # the value's PK.
         attributes = cleaned_input.get("attributes")
         product_type = cleaned_input.get("product_type")
+        logger.debug(f"clean_attributes: attributes={attributes}, product_type={product_type}")
         if attributes and product_type:
             try:
                 attributes_qs = product_type.product_attributes.all()
@@ -164,16 +175,23 @@ class ProductCreate(DeprecatedModelMutation):
                     attributes, attributes_qs
                 )
             except ValidationError as e:
+                logger.error(f"clean_attributes validation failed: {e}", exc_info=True)
                 raise ValidationError({"attributes": e}) from e
 
     @classmethod
     def save(cls, info: ResolveInfo, instance, cleaned_input, instance_tracker=None):
-        with traced_atomic_transaction():
-            instance.search_index_dirty = True
-            instance.save()
-            attributes = cleaned_input.get("attributes")
-            if attributes:
-                AttributeAssignmentMixin.save(instance, attributes)
+        logger.debug(f"ProductCreate.save started for instance: {instance}")
+        try:
+            with traced_atomic_transaction():
+                instance.search_index_dirty = True
+                instance.save()
+                attributes = cleaned_input.get("attributes")
+                if attributes:
+                    AttributeAssignmentMixin.save(instance, attributes)
+            logger.info(f"Product saved successfully: id={instance.pk}, name={instance.name}")
+        except Exception as e:
+            logger.error(f"ProductCreate.save failed: {e}", exc_info=True)
+            raise
 
     @classmethod
     def _save_m2m(cls, _info: ResolveInfo, instance, cleaned_data):
@@ -189,13 +207,19 @@ class ProductCreate(DeprecatedModelMutation):
 
     @classmethod
     def perform_mutation(cls, _root, info: ResolveInfo, /, **data):
-        response = super().perform_mutation(_root, info, **data)
-        product = getattr(response, cls._meta.return_field_name)
+        logger.debug(f"ProductCreate.perform_mutation started with data: {data}")
+        try:
+            response = super().perform_mutation(_root, info, **data)
+            product = getattr(response, cls._meta.return_field_name)
 
-        # Wrap product instance with ChannelContext in response
-        setattr(
-            response,
-            cls._meta.return_field_name,
-            ChannelContext(node=product, channel_slug=None),
-        )
-        return response
+            # Wrap product instance with ChannelContext in response
+            setattr(
+                response,
+                cls._meta.return_field_name,
+                ChannelContext(node=product, channel_slug=None),
+            )
+            logger.info(f"ProductCreate.perform_mutation completed successfully")
+            return response
+        except Exception as e:
+            logger.error(f"ProductCreate.perform_mutation failed: {e}", exc_info=True)
+            raise
