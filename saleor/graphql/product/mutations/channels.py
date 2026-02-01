@@ -7,6 +7,9 @@ from django.core.exceptions import ValidationError
 from django.db.utils import IntegrityError
 
 from ....core.tracing import traced_atomic_transaction
+from ....utils import OC_logger
+
+logger = OC_logger.oc_log("product_channels")
 from ....core.utils.date_time import convert_to_utc_date_time
 from ....permission.enums import ProductPermissions
 from ....product.error_codes import CollectionErrorCode, ProductErrorCode
@@ -232,6 +235,16 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
             add_variants = update_channel.get("add_variants", None)
             remove_variants = update_channel.get("remove_variants", None)
             defaults = {"currency": channel.currency_code}
+
+            # Set default values if not provided
+            if "is_published" not in update_channel:
+                update_channel["is_published"] = True
+                update_channel["published_at"] = datetime.datetime.now(tz=datetime.UTC)
+            if "visible_in_listings" not in update_channel:
+                update_channel["visible_in_listings"] = True
+            if "is_available_for_purchase" not in update_channel:
+                update_channel["is_available_for_purchase"] = True
+
             for field in ["is_published", "published_at", "visible_in_listings"]:
                 if field in update_channel.keys():
                     defaults[field] = update_channel[field]
@@ -355,31 +368,38 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
     def perform_mutation(  # type: ignore[override]
         cls, _root, info: ResolveInfo, /, *, id, input
     ):
-        product = cls.get_node_or_error(info, id, only_type=Product, field="id")
-        errors: defaultdict[str, list[ValidationError]] = defaultdict(list)
+        logger.debug(f"ProductChannelListingUpdate.perform_mutation: id={id}, input={input}")
+        try:
+            product = cls.get_node_or_error(info, id, only_type=Product, field="id")
+            errors: defaultdict[str, list[ValidationError]] = defaultdict(list)
 
-        cleaned_input = cls.clean_channels(
-            info,
-            input,
-            errors,
-            ProductErrorCode.DUPLICATED_INPUT_ITEM.value,
-            input_source="update_channels",
-        )
-        cls.clean_publication_date(
-            errors, ProductErrorCode, cleaned_input, input_source="update_channels"
-        )
-        cls.clean_available_for_purchase(cleaned_input, errors)
-        cls.validate_variants(cleaned_input, errors)
-        if not product.category:
-            cls.validate_product_without_category(cleaned_input, errors)
-        if errors:
-            raise ValidationError(errors)
+            cleaned_input = cls.clean_channels(
+                info,
+                input,
+                errors,
+                ProductErrorCode.DUPLICATED_INPUT_ITEM.value,
+                input_source="update_channels",
+            )
+            cls.clean_publication_date(
+                errors, ProductErrorCode, cleaned_input, input_source="update_channels"
+            )
+            cls.clean_available_for_purchase(cleaned_input, errors)
+            cls.validate_variants(cleaned_input, errors)
+            if not product.category:
+                cls.validate_product_without_category(cleaned_input, errors)
+            if errors:
+                logger.error(f"ProductChannelListingUpdate validation errors: {errors}")
+                raise ValidationError(errors)
 
-        cls.save(info, product, cleaned_input)
-        cls.post_save_actions(info, product, cleaned_input)
-        return ProductChannelListingUpdate(
-            product=ChannelContext(node=product, channel_slug=None)
-        )
+            cls.save(info, product, cleaned_input)
+            cls.post_save_actions(info, product, cleaned_input)
+            logger.info(f"ProductChannelListingUpdate success: product_id={product.pk}")
+            return ProductChannelListingUpdate(
+                product=ChannelContext(node=product, channel_slug=None)
+            )
+        except Exception as e:
+            logger.error(f"ProductChannelListingUpdate failed: {e}", exc_info=True)
+            raise
 
 
 class ProductVariantChannelListingAddInput(BaseInputObjectType):
@@ -507,6 +527,20 @@ class ProductVariantChannelListingUpdate(BaseMutation):
             channel_id = channel_listing_data["channel_id"]
             currency_code = channel_listing_data["channel"].currency_code
 
+            # Validate that price is required
+            if price is None:
+                logger.error(
+                    f"ProductVariantChannelListingUpdate: price is required for "
+                    f"channel_id={channel_id}. Variant cannot be available without price."
+                )
+                errors["price"].append(
+                    ValidationError(
+                        "Price is required. Variant cannot be available in channel without price.",
+                        code=ProductErrorCode.REQUIRED.value,
+                        params={"channels": [channel_id]},
+                    )
+                )
+
             cls.clean_price(price, "price", currency_code, channel_id, errors)
             cls.clean_price(cost_price, "cost_price", currency_code, channel_id, errors)
             cls.clean_price(
@@ -564,38 +598,45 @@ class ProductVariantChannelListingUpdate(BaseMutation):
     def perform_mutation(  # type: ignore[override]
         cls, _root, info: ResolveInfo, /, *, id=None, input, sku=None
     ):
-        validate_one_of_args_is_in_mutation("sku", sku, "id", id)
+        logger.debug(f"ProductVariantChannelListingUpdate.perform_mutation: id={id}, sku={sku}, input={input}")
+        try:
+            validate_one_of_args_is_in_mutation("sku", sku, "id", id)
 
-        qs = ProductVariantModel.objects.all()
-        if id:
-            variant = cls.get_node_or_error(
-                info, id, only_type=ProductVariant, field="id", qs=qs
-            )
-        else:
-            variant = qs.filter(sku=sku).first()
-            if not variant:
-                raise ValidationError(
-                    {
-                        "sku": ValidationError(
-                            f"Couldn't resolve to a node: {sku}", code="not_found"
-                        )
-                    }
+            qs = ProductVariantModel.objects.all()
+            if id:
+                variant = cls.get_node_or_error(
+                    info, id, only_type=ProductVariant, field="id", qs=qs
                 )
+            else:
+                variant = qs.filter(sku=sku).first()
+                if not variant:
+                    raise ValidationError(
+                        {
+                            "sku": ValidationError(
+                                f"Couldn't resolve to a node: {sku}", code="not_found"
+                            )
+                        }
+                    )
 
-        errors: defaultdict[str, list[ValidationError]] = defaultdict(list)
+            errors: defaultdict[str, list[ValidationError]] = defaultdict(list)
 
-        cleaned_input = cls.clean_channels(info, input, errors)
-        cls.validate_product_assigned_to_channel(variant, cleaned_input, errors)
-        cleaned_input = cls.clean_prices(info, cleaned_input, errors)
+            cleaned_input = cls.clean_channels(info, input, errors)
+            cls.validate_product_assigned_to_channel(variant, cleaned_input, errors)
+            cleaned_input = cls.clean_prices(info, cleaned_input, errors)
 
-        if errors:
-            raise ValidationError(errors)
+            if errors:
+                logger.error(f"ProductVariantChannelListingUpdate validation errors: {errors}")
+                raise ValidationError(errors)
 
-        cls.save(info, variant, cleaned_input)
-        cls.post_save_actions(info, variant, cleaned_input)
-        return ProductVariantChannelListingUpdate(
-            variant=ChannelContext(node=variant, channel_slug=None)
-        )
+            cls.save(info, variant, cleaned_input)
+            cls.post_save_actions(info, variant, cleaned_input)
+            logger.info(f"ProductVariantChannelListingUpdate success: variant_id={variant.pk}, sku={variant.sku}")
+            return ProductVariantChannelListingUpdate(
+                variant=ChannelContext(node=variant, channel_slug=None)
+            )
+        except Exception as e:
+            logger.error(f"ProductVariantChannelListingUpdate failed: {e}", exc_info=True)
+            raise
 
 
 class CollectionChannelListingUpdateInput(BaseInputObjectType):
