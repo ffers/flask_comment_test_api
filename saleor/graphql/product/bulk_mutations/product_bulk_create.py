@@ -862,10 +862,13 @@ class ProductBulkCreate(BaseMutation):
                 product=product,
                 channel=listing_data["channel"],
                 currency=listing_data["channel"].currency_code,
-                is_published=listing_data.get("is_published", False),
+                is_published=listing_data.get("is_published", True),
                 published_at=listing_data.get("published_at"),
-                visible_in_listings=listing_data.get("visible_in_listings", False),
-                available_for_purchase_at=listing_data.get("available_for_purchase_at"),
+                visible_in_listings=listing_data.get("visible_in_listings", True),
+                available_for_purchase_at=listing_data.get(
+                    "available_for_purchase_at",
+                    datetime.datetime.now(tz=datetime.UTC),
+                ),
             )
             for listing_data in listings_input
         ]

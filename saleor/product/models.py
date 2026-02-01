@@ -315,7 +315,8 @@ class ProductChannelListing(PublishableModel):
         related_name="product_listings",
         on_delete=models.CASCADE,
     )
-    visible_in_listings = models.BooleanField(default=False)
+    is_published = models.BooleanField(default=True)
+    visible_in_listings = models.BooleanField(default=True)
     available_for_purchase_at = models.DateTimeField(blank=True, null=True)
     currency = models.CharField(max_length=settings.DEFAULT_CURRENCY_CODE_LENGTH)
     discounted_price_amount = models.DecimalField(

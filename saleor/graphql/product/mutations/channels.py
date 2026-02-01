@@ -242,9 +242,18 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
                         is_available_for_purchase, update_channel
                     )
                 )
-            product_channel_listing, _ = ProductChannelListing.objects.update_or_create(
-                product=product, channel=channel, defaults=defaults
+            product_channel_listing, created = (
+                ProductChannelListing.objects.update_or_create(
+                    product=product, channel=channel, defaults=defaults
+                )
             )
+            if created and product_channel_listing.available_for_purchase_at is None:
+                product_channel_listing.available_for_purchase_at = (
+                    datetime.datetime.now(tz=datetime.UTC)
+                )
+                product_channel_listing.save(
+                    update_fields=["available_for_purchase_at"]
+                )
             cls.add_variants(channel, add_variants)
             cls.remove_variants(
                 product_channel_listing, product, channel, remove_variants
