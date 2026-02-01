@@ -229,14 +229,9 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
             )
 
     @classmethod
-    def update_channels(cls, product: "ProductModel", update_channels: list[dict]):
-        for update_channel in update_channels:
-            channel = update_channel["channel"]
-            add_variants = update_channel.get("add_variants", None)
-            remove_variants = update_channel.get("remove_variants", None)
-            defaults = {"currency": channel.currency_code}
-
-            # Set default values if not provided
+    def set_default_channel_values(cls, cleaned_input: dict):
+        """Set default values for channel listing before validation."""
+        for update_channel in cleaned_input.get("update_channels", []):
             if "is_published" not in update_channel:
                 update_channel["is_published"] = True
                 update_channel["published_at"] = datetime.datetime.now(tz=datetime.UTC)
@@ -244,6 +239,14 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
                 update_channel["visible_in_listings"] = True
             if "is_available_for_purchase" not in update_channel:
                 update_channel["is_available_for_purchase"] = True
+
+    @classmethod
+    def update_channels(cls, product: "ProductModel", update_channels: list[dict]):
+        for update_channel in update_channels:
+            channel = update_channel["channel"]
+            add_variants = update_channel.get("add_variants", None)
+            remove_variants = update_channel.get("remove_variants", None)
+            defaults = {"currency": channel.currency_code}
 
             for field in ["is_published", "published_at", "visible_in_listings"]:
                 if field in update_channel.keys():
@@ -380,6 +383,10 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
                 ProductErrorCode.DUPLICATED_INPUT_ITEM.value,
                 input_source="update_channels",
             )
+
+            # Set default values before validation
+            cls.set_default_channel_values(cleaned_input)
+
             cls.clean_publication_date(
                 errors, ProductErrorCode, cleaned_input, input_source="update_channels"
             )
