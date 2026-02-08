@@ -1,3 +1,5 @@
+import mimetypes
+
 import graphene
 from django.core.exceptions import ValidationError
 from django.core.files import File
@@ -8,6 +10,7 @@ from .....permission.enums import ProductPermissions
 from .....product import ProductMediaTypes, models
 from .....product.error_codes import ProductErrorCode
 from .....thumbnail.utils import get_filename_from_url
+from .....utils import OC_logger
 from ....core import ResolveInfo
 from ....core.context import ChannelContext
 from ....core.doc_category import DOC_CATEGORY_PRODUCTS
@@ -17,6 +20,8 @@ from ....core.validators.file import clean_image_file, is_image_url, validate_im
 from ....plugins.dataloaders import get_plugin_manager_promise
 from ...types import Product, ProductMedia
 from ...utils import ALT_CHAR_LIMIT
+
+logger = OC_logger.oc_log("product_media_create")
 
 
 class ProductMediaCreateInput(BaseInputObjectType):
@@ -117,22 +122,47 @@ class ProductMediaCreate(BaseMutation):
             # Remote URLs can point to the images or oembed data.
             # In case of images, file is downloaded. Otherwise we keep only
             # URL to remote media.
-            if is_image_url(media_url):
-                validate_image_url(
-                    media_url, "media_url", ProductErrorCode.INVALID.value
-                )
+            guessed_type = mimetypes.guess_type(media_url)[0]
+            is_image = is_image_url(media_url)
+            logger.info(f"ProductMediaCreate: media_url={media_url}, guessed_type={guessed_type}, is_image_url={is_image}")
+
+            if is_image:
+                logger.debug(f"ProductMediaCreate: processing as image URL")
+                try:
+                    validate_image_url(
+                        media_url, "media_url", ProductErrorCode.INVALID.value
+                    )
+                except Exception as e:
+                    logger.error(f"ProductMediaCreate: validate_image_url failed: {e}", exc_info=True)
+                    raise
+
                 filename = get_filename_from_url(media_url)
-                image_data = HTTPClient.send_request(
-                    "GET", media_url, stream=True, allow_redirects=True
-                )
+                logger.debug(f"ProductMediaCreate: downloading image, filename={filename}")
+
+                try:
+                    image_data = HTTPClient.send_request(
+                        "GET", media_url, stream=True, allow_redirects=True,
+                        headers={"ngrok-skip-browser-warning": "true"}
+                    )
+                    logger.debug(f"ProductMediaCreate: download response status={image_data.status_code}")
+                except Exception as e:
+                    logger.error(f"ProductMediaCreate: image download failed: {e}", exc_info=True)
+                    raise
+
                 image_file = File(image_data.raw, filename)
                 media = product.media.create(
                     image=image_file,
                     alt=alt,
                     type=ProductMediaTypes.IMAGE,
                 )
+                logger.info(f"ProductMediaCreate: image saved successfully, media_id={media.pk}")
             else:
-                oembed_data, media_type = get_oembed_data(media_url, "media_url")
+                logger.debug(f"ProductMediaCreate: processing as oembed URL")
+                try:
+                    oembed_data, media_type = get_oembed_data(media_url, "media_url")
+                except Exception as e:
+                    logger.error(f"ProductMediaCreate: get_oembed_data failed for url={media_url}: {e}", exc_info=True)
+                    raise
                 media = product.media.create(
                     external_url=oembed_data["url"],
                     alt=oembed_data.get("title", alt),
