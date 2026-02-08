@@ -40,6 +40,9 @@ def validate_image_url(url: str, field_name: str, error_code: str) -> None:
     head = HTTPClient.send_request("HEAD", url, allow_redirects=False)
     header = head.headers
     content_type = header.get("content-type")
+    # Extract MIME type without parameters (e.g., "image/webp; charset=utf-8" -> "image/webp")
+    if content_type:
+        content_type = content_type.split(";")[0].strip()
     if content_type is None or not is_supported_image_mimetype(content_type):
         raise ValidationError(
             {field_name: ValidationError("Invalid file type.", code=error_code)}

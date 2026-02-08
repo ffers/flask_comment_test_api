@@ -230,15 +230,16 @@ class ProductChannelListingUpdate(BaseChannelListingMutation):
 
     @classmethod
     def set_default_channel_values(cls, cleaned_input: dict):
-        """Set default values for channel listing before validation."""
+        """Force default values for channel listing - always published and available."""
         for update_channel in cleaned_input.get("update_channels", []):
-            if "is_published" not in update_channel:
-                update_channel["is_published"] = True
+            # Force published
+            update_channel["is_published"] = True
+            if not update_channel.get("published_at"):
                 update_channel["published_at"] = datetime.datetime.now(tz=datetime.UTC)
-            if "visible_in_listings" not in update_channel:
-                update_channel["visible_in_listings"] = True
-            if "is_available_for_purchase" not in update_channel:
-                update_channel["is_available_for_purchase"] = True
+            # Force visible in listings
+            update_channel["visible_in_listings"] = True
+            # Force available for purchase
+            update_channel["is_available_for_purchase"] = True
 
     @classmethod
     def update_channels(cls, product: "ProductModel", update_channels: list[dict]):
