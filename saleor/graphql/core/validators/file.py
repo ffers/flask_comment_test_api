@@ -7,9 +7,12 @@ from PIL import Image, UnidentifiedImageError
 from ....core.http_client import HTTPClient
 from ....thumbnail import MIME_TYPE_TO_PIL_IDENTIFIER
 from ....thumbnail.utils import ProcessedImage
+from ....utils import OC_logger
 from ..utils import add_hash_to_file_name
 
 Image.init()
+
+logger = OC_logger.oc_log("file_validators")
 
 
 def is_image_mimetype(mimetype: str) -> bool:
@@ -29,7 +32,9 @@ def is_supported_image_mimetype(mimetype: str) -> bool:
 def is_image_url(url: str) -> bool:
     """Check if file URL seems to be an image."""
     filetype = mimetypes.guess_type(url)[0]
-    return filetype is not None and is_image_mimetype(filetype)
+    result = filetype is not None and is_image_mimetype(filetype)
+    logger.debug(f"is_image_url: url={url}, guessed_type={filetype}, result={result}")
+    return result
 
 
 def validate_image_url(url: str, field_name: str, error_code: str) -> None:
@@ -37,16 +42,36 @@ def validate_image_url(url: str, field_name: str, error_code: str) -> None:
 
     Instead of the whole file, only the headers are fetched.
     """
-    head = HTTPClient.send_request("HEAD", url, allow_redirects=False)
+    logger.debug(f"validate_image_url: starting validation for url={url}")
+    try:
+        head = HTTPClient.send_request(
+            "HEAD", url, allow_redirects=True,
+            headers={"ngrok-skip-browser-warning": "true"}
+        )
+        logger.debug(f"validate_image_url: HEAD response status={head.status_code}, headers={dict(head.headers)}")
+    except Exception as e:
+        logger.error(f"validate_image_url: HEAD request failed for url={url}, error={e}")
+        raise ValidationError(
+            {field_name: ValidationError(f"Failed to fetch image: {e}", code=error_code)}
+        )
+
     header = head.headers
     content_type = header.get("content-type")
+    logger.debug(f"validate_image_url: raw content_type={content_type}")
+
     # Extract MIME type without parameters (e.g., "image/webp; charset=utf-8" -> "image/webp")
     if content_type:
         content_type = content_type.split(";")[0].strip()
+
+    logger.debug(f"validate_image_url: cleaned content_type={content_type}, is_supported={is_supported_image_mimetype(content_type) if content_type else False}")
+
     if content_type is None or not is_supported_image_mimetype(content_type):
+        logger.error(f"validate_image_url: Invalid file type for url={url}, content_type={content_type}")
         raise ValidationError(
             {field_name: ValidationError("Invalid file type.", code=error_code)}
         )
+
+    logger.info(f"validate_image_url: validation passed for url={url}, content_type={content_type}")
 
 
 def clean_image_file(cleaned_input, img_field_name, error_class):
