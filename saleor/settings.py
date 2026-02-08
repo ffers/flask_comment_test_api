@@ -359,7 +359,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://jemis.com.ua",
-    "https://www.jemis.com.ua"
+    "https://dashboard.jemis.com.ua",
+    "https://www.jemis.com.ua",
+    "https://www.dashboard.jemis.com.ua",
+
 ]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
