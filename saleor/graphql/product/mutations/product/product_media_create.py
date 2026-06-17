@@ -16,7 +16,7 @@ from ....core.context import ChannelContext
 from ....core.doc_category import DOC_CATEGORY_PRODUCTS
 from ....core.mutations import BaseMutation
 from ....core.types import BaseInputObjectType, ProductError, Upload
-from ....core.validators.file import clean_image_file, is_image_url, validate_image_url
+from ....core.validators.file import clean_image_file, is_image_url
 from ....plugins.dataloaders import get_plugin_manager_promise
 from ...types import Product, ProductMedia
 from ...utils import ALT_CHAR_LIMIT
@@ -128,14 +128,6 @@ class ProductMediaCreate(BaseMutation):
 
             if is_image:
                 logger.debug(f"ProductMediaCreate: processing as image URL")
-                try:
-                    validate_image_url(
-                        media_url, "media_url", ProductErrorCode.INVALID.value
-                    )
-                except Exception as e:
-                    logger.error(f"ProductMediaCreate: validate_image_url failed: {e}", exc_info=True)
-                    raise
-
                 filename = get_filename_from_url(media_url)
                 logger.debug(f"ProductMediaCreate: downloading image, filename={filename}")
 
