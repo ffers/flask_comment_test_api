@@ -361,7 +361,7 @@ def add_variants_to_checkout(
 
         to_reserve = to_create + to_update
 
-        if reservation_length and to_reserve:
+        if False and reservation_length and to_reserve:  # reservations disabled: stock blocks only on payment
             updated_lines_ids = [line.pk for line in to_reserve + to_delete]
 
             # Validation for stock reservation should be performed on new and updated lines.
@@ -502,7 +502,7 @@ def change_shipping_address_in_checkout(
     lines: list["CheckoutLineInfo"],
     shipping_channel_listings: Iterable["ShippingMethodChannelListing"],
 ):
-    
+
     """Save shipping address in checkout if changed.
 
     Remove previously saved address if not connected to any user.

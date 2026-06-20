@@ -6,13 +6,18 @@ from ...webhook.event_types import WebhookEventSyncType
 
 
 def prepare_insufficient_stock_checkout_validation_error(exc):
-    variants = [str(item.variant) for item in exc.items]
     variant_ids = [
         graphene.Node.to_global_id("ProductVariant", item.variant.pk)
         for item in exc.items
     ]
+    sold_out = all(item.available_quantity == 0 for item in exc.items)
+    if sold_out:
+        message = "Останній товар вже нажаль продано"
+    else:
+        variants = [str(item.variant) for item in exc.items]
+        message = f"Insufficient product stock: {', '.join(variants)}"
     return ValidationError(
-        f"Insufficient product stock: {', '.join(variants)}",
+        message,
         code=exc.code.value,
         params={"variants": variant_ids},
     )
